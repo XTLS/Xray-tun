@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package xray.transport.internet.tunnel;
+option csharp_namespace = "Xray.Transport.Internet.Tunnel";
+option go_package = "github.com/xtls/xray-core/transport/internet/tunnel";
+option java_package = "com.xray.transport.internet.tunnel";
+option java_multiple_files = true;
+
+message Config {
+ string name = 1;
+ string address = 2;
+ string gateway = 3;
+ string mask = 4;
+ repeated string dns = 5;
+ bool fix_dns_leak = 6;
+}

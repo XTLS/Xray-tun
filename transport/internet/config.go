@@ -28,6 +28,8 @@ func transportProtocolToString(protocol TransportProtocol) string {
 		return "websocket"
 	case TransportProtocol_DomainSocket:
 		return "domainsocket"
+	case TransportProtocol_Tun:
+		return "tunnel"
 	default:
 		return unknownProtocol
 	}

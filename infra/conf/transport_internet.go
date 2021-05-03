@@ -18,6 +18,7 @@ import (
 	"github.com/xtls/xray-core/transport/internet/quic"
 	"github.com/xtls/xray-core/transport/internet/tcp"
 	"github.com/xtls/xray-core/transport/internet/tls"
+	"github.com/xtls/xray-core/transport/internet/tunnel"
 	"github.com/xtls/xray-core/transport/internet/websocket"
 	"github.com/xtls/xray-core/transport/internet/xtls"
 )
@@ -462,6 +463,8 @@ func (p TransportProtocol) Build() (string, error) {
 		return "quic", nil
 	case "grpc", "gun":
 		return "grpc", nil
+	case "tun", "tunnel":
+		return "tunnel", nil
 	default:
 		return "", newError("Config: unknown transport protocol: ", p)
 	}
@@ -534,6 +537,7 @@ type StreamConfig struct {
 	HTTPSettings   *HTTPConfig         `json:"httpSettings"`
 	DSSettings     *DomainSocketConfig `json:"dsSettings"`
 	QUICSettings   *QUICConfig         `json:"quicSettings"`
+	TUNSettings    *TunConfig          `json:"tunSettings"`
 	SocketSettings *SocketConfig       `json:"sockopt"`
 	GRPCConfig     *GRPCConfig         `json:"grpcSettings"`
 	GUNConfig      *GRPCConfig         `json:"gunSettings"`
@@ -659,6 +663,16 @@ func (c *StreamConfig) Build() (*internet.StreamConfig, error) {
 			Settings:     serial.ToTypedMessage(gs),
 		})
 	}
+	if c.TUNSettings != nil {
+		ts, err := c.TUNSettings.Build()
+		if err != nil {
+			return nil, newError("failed to build TUN config").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			ProtocolName: "tunnel",
+			Settings:     serial.ToTypedMessage(ts),
+		})
+	}
 	if c.SocketSettings != nil {
 		ss, err := c.SocketSettings.Build()
 		if err != nil {
@@ -685,4 +699,25 @@ func (v *ProxyConfig) Build() (*internet.ProxyConfig, error) {
 		Tag:                 v.Tag,
 		TransportLayerProxy: v.TransportLayerProxy,
 	}, nil
+}
+
+type TunConfig struct {
+	Name       string     `json:"name,omitempty"`
+	Address    string     `json:"address,omitempty"`
+	Gateway    string     `json:"gateway,omitempty"`
+	Mask       string     `json:"mask,omitempty"`
+	DNS        StringList `json:"dns,omitempty"`
+	FixDNSLeak bool       `json:"fixDNSLeak"`
+}
+
+func (c *TunConfig) Build() (proto.Message, error) {
+	config := &tunnel.Config{
+		Name:       c.Name,
+		Address:    c.Address,
+		Gateway:    c.Gateway,
+		Mask:       c.Mask,
+		Dns:        c.DNS,
+		FixDnsLeak: c.FixDNSLeak,
+	}
+	return config, nil
 }

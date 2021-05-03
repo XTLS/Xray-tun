@@ -10,6 +10,8 @@ import (
 	"github.com/xtls/xray-core/app/dispatcher"
 	"github.com/xtls/xray-core/app/proxyman"
 	"github.com/xtls/xray-core/app/stats"
+	"github.com/xtls/xray-core/common/net"
+	"github.com/xtls/xray-core/common/route"
 	"github.com/xtls/xray-core/common/serial"
 	core "github.com/xtls/xray-core/core"
 	"github.com/xtls/xray-core/transport/internet/xtls"
@@ -24,6 +26,7 @@ var (
 		"vless":         func() interface{} { return new(VLessInboundConfig) },
 		"vmess":         func() interface{} { return new(VMessInboundConfig) },
 		"trojan":        func() interface{} { return new(TrojanServerConfig) },
+		"tunnel":        func() interface{} { return new(TunnelConfig) },
 		"mtproto":       func() interface{} { return new(MTProtoServerConfig) },
 	}, "protocol", "settings")
 
@@ -270,6 +273,7 @@ type OutboundDetourConfig struct {
 	StreamSetting *StreamConfig    `json:"streamSettings"`
 	ProxySettings *ProxyConfig     `json:"proxySettings"`
 	MuxSettings   *MuxConfig       `json:"mux"`
+	Tun           bool             `json:"tunnel"`
 }
 
 func (c *OutboundDetourConfig) checkChainProxyConfig() error {
@@ -295,6 +299,18 @@ func (c *OutboundDetourConfig) Build() (*core.OutboundHandlerConfig, error) {
 			return nil, newError("unable to send through: " + address.String())
 		}
 		senderSettings.Via = address.Build()
+	}
+	if c.Tun {
+		helper := route.GetHelper()
+		addr, _, err := helper.GetDefaultInterface()
+		if err != nil {
+			return nil, newError("Unable to find default route").Base(err)
+		}
+		senderSettings.Via = &net.IPOrDomain{
+			Address: &net.IPOrDomain_Ip{
+				Ip: addr,
+			},
+		}
 	}
 
 	if c.StreamSetting != nil {

@@ -26,6 +26,19 @@ func DestinationFromAddr(addr net.Addr) Destination {
 	}
 }
 
+func DestinationToAddr(dest Destination) net.Addr {
+	switch dest.Network {
+	case Network_TCP:
+		return &net.TCPAddr{IP: dest.Address.IP(), Port: int(dest.Port)}
+	case Network_UDP:
+		return &net.UDPAddr{IP: dest.Address.IP(), Port: int(dest.Port)}
+	case Network_UNIX:
+		return &net.UnixAddr{Name: dest.Address.Domain()}
+	default:
+		panic("Net: Unknown network.")
+	}
+}
+
 // ParseDestination converts a destination from its string presentation.
 func ParseDestination(dest string) (Destination, error) {
 	d := Destination{

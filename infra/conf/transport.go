@@ -15,6 +15,7 @@ type TransportConfig struct {
 	QUICConfig *QUICConfig         `json:"quicSettings"`
 	GRPCConfig *GRPCConfig         `json:"grpcSettings"`
 	GUNConfig  *GRPCConfig         `json:"gunSettings"`
+	TUNConfig  *TunConfig          `json:"tunSettings"`
 }
 
 // Build implements Buildable.
@@ -101,5 +102,15 @@ func (c *TransportConfig) Build() (*global.Config, error) {
 		})
 	}
 
+	if c.TUNConfig != nil {
+		ts, err := c.TUNConfig.Build()
+		if err != nil {
+			return nil, newError("Failed to build Tun config.").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			ProtocolName: "tun",
+			Settings:     serial.ToTypedMessage(ts),
+		})
+	}
 	return config, nil
 }
