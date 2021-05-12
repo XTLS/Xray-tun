@@ -2,7 +2,6 @@ package conf
 
 import (
 	"encoding/json"
-	"github.com/xtls/xray-core/transport/internet"
 	"log"
 	"os"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"github.com/xtls/xray-core/common/route"
 	"github.com/xtls/xray-core/common/serial"
 	core "github.com/xtls/xray-core/core"
+	"github.com/xtls/xray-core/transport/internet"
 	"github.com/xtls/xray-core/transport/internet/xtls"
 )
 

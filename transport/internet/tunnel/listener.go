@@ -4,6 +4,12 @@ package tunnel
 
 import (
 	"context"
+	"io"
+	"os"
+	"os/signal"
+	"runtime"
+	"syscall"
+
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/blockdns"
 	"github.com/xtls/xray-core/common/net"
@@ -12,11 +18,6 @@ import (
 	"github.com/xtls/xray-core/transport/internet"
 	"github.com/xtls/xray-core/transport/internet/tunnel/stack"
 	tundev "github.com/xtls/xray-core/transport/internet/tunnel/tun"
-	"io"
-	"os"
-	"os/signal"
-	"runtime"
-	"syscall"
 )
 
 var MTU = 1500
@@ -110,11 +111,7 @@ func (l *listener) acceptConn(c net.Conn) {
 }
 
 func setRouteTable(h route.Helper, tun tundev.Device, tunGW net.IP) error {
-	originGW, err := h.GetDefaultGateway()
-	if err != nil {
-		return err
-	}
-	defInf, _, err := h.GetDefaultInterface()
+	defInf, err := h.GetDefaultGateway()
 	if err != nil {
 		return err
 	}
@@ -132,7 +129,7 @@ func setRouteTable(h route.Helper, tun tundev.Device, tunGW net.IP) error {
 		case "linux":
 			h.RemoveDefaultInterface(defInf)
 		case "darwin":
-			h.RemoveDefaultInterface(originGW)
+			h.RemoveDefaultInterface(defInf)
 		}
 	}()
 	return nil

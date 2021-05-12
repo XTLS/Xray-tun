@@ -3,13 +3,12 @@
 package route
 
 import (
-	"fmt"
 	"net"
-	"os/exec"
-	"strings"
+
+	"github.com/vishvananda/netlink"
 )
 
-type darwinHelper struct {
+type linuxHelper struct {
 	defaultGatewayCache   net.IP
 	defaultInterfaceCache net.IP
 	defaultInfNameCache   string
@@ -17,77 +16,100 @@ type darwinHelper struct {
 	originGW net.IP
 }
 
-var setRouteCmd = "add default gw %s"
-var setInfRouteCmd = "route add default via %s dev %s table default"
-var setSourceRuleCmd = "rule add from %s table default"
-
-var delSourceRuleCmd = "rule del from %s table default"
-
-func (h *darwinHelper) SetDefaultInterface(dev net.IP, _ interface{}) error {
-	originIf, originDevName, err := h.GetDefaultInterface()
+func (h *linuxHelper) SetDefaultInterface(dev net.IP, _ interface{}) error {
+	oif, _, err := h.GetDefaultInterface()
 	if err != nil {
 		return err
 	}
-	originGW, err := h.GetDefaultGateway()
+	oroute, err := h.getDefaultRoute()
 	if err != nil {
 		return err
 	}
-	h.originGW = originGW
-	fmt.Println(originIf, originGW, originDevName)
-	return runOsCommands(
-		osCommand{"route", "delete default", "failed to modify route table 1"},
-		osCommand{"route", fmt.Sprintf(setRouteCmd, dev.String()), "failed to modify route table 2"},
-		osCommand{"ip", fmt.Sprintf(setInfRouteCmd, originGW.String(), originDevName), "failed to modify route table 3"},
-		osCommand{"ip", fmt.Sprintf(setSourceRuleCmd, originIf.String()), "failed to modify route table 4"},
-	)
+
+	err = netlink.RouteDel(&netlink.Route{Dst: &net.IPNet{IP: net.IPv4zero}})
+	if err != nil {
+		return newError("failed to del default route").Base(err)
+	}
+
+	err = netlink.RouteAdd(&netlink.Route{Gw: dev})
+	if err != nil {
+		return newError("failed to set default route").Base(err)
+	}
+
+	err = netlink.RouteAdd(&netlink.Route{LinkIndex: oroute.LinkIndex, Src: oif, Priority: 1})
+	if err != nil {
+		return newError("failed to set default route2").Base(err)
+	}
+
+	return nil
 }
-func (h *darwinHelper) RemoveDefaultInterface(originIP interface{}) error {
+func (h *linuxHelper) RemoveDefaultInterface(originIP interface{}) error {
 	oIP := originIP.(net.IP)
-	return runOsCommands(
-		osCommand{"ip", fmt.Sprintf(delSourceRuleCmd, oIP.String()), "failed to remove default route 1"},
-		osCommand{"route", "delete default", "failed to remove default route 2"},
-		osCommand{"route", "delete default table default", "failed to remove default route 3"},
-		osCommand{"route", fmt.Sprintf(setRouteCmd, h.originGW.String()), "failed to modify route table 2"},
-	)
+	err := netlink.RouteDel(&netlink.Route{Dst: &net.IPNet{IP: net.IPv4zero}})
+	if err != nil {
+		return err
+	}
+
+	err = netlink.RouteAdd(&netlink.Route{Gw: oIP})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-var defaultHelper = &darwinHelper{}
+var defaultHelper = &linuxHelper{}
 
-func (h *darwinHelper) GetDefaultGateway() (net.IP, error) {
+func (h *linuxHelper) GetDefaultGateway() (net.IP, error) {
 	if h.defaultGatewayCache != nil {
 		return h.defaultGatewayCache, nil
 	}
-	s, err := exec.Command("bash", "-c", `echo $(netstat -rn | grep "default" | awk '{print $2}' )`).Output()
+
+	route, err := h.getDefaultRoute()
 	if err != nil {
-		return nil, newError("failed to find default route").Base(err)
+		return nil, err
 	}
-	ip := net.ParseIP(strings.Split(string(s), " ")[0])
-	h.defaultGatewayCache = ip
-	return ip, nil
+	return route.Gw, nil
 }
 
-func (h *darwinHelper) GetDefaultInterface() (net.IP, string, error) {
+func (h *linuxHelper) GetDefaultInterface() (net.IP, string, error) {
 	if h.defaultInterfaceCache != nil {
 		return h.defaultInterfaceCache, h.defaultInfNameCache, nil
 	}
-	infs, err := net.Interfaces()
+	route, err := h.getDefaultRoute()
 	if err != nil {
 		return nil, "", err
 	}
-	for _, inf := range infs {
-		addrs, err := inf.Addrs()
+
+	if route.Dst == nil {
+		link, err := netlink.LinkByIndex(route.LinkIndex)
 		if err != nil {
 			return nil, "", err
 		}
-		for _, address := range addrs {
-			if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-				if ipnet.IP.To4() != nil {
-					h.defaultInfNameCache = inf.Name
-					h.defaultInterfaceCache = ipnet.IP
-					return ipnet.IP, inf.Name, nil
-				}
-			}
+		addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
+		if err != nil {
+			return nil, "", err
+		}
+		for _, addr := range addrs {
+			h.defaultInterfaceCache = addr.IP
+			h.defaultInfNameCache = addr.Label
+			return addr.IP, addr.Label, nil
 		}
 	}
+
 	return nil, "", newError("not found")
+}
+
+func (h *linuxHelper) getDefaultRoute() (*netlink.Route, error) {
+	r, err := netlink.RouteList(nil, netlink.FAMILY_V4)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, route := range r {
+		if route.Dst == nil {
+			return &route, nil
+		}
+	}
+	return nil, err
 }
