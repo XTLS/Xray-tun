@@ -2,11 +2,12 @@ package stack
 
 import (
 	"fmt"
-	"github.com/xtls/xray-core/transport/internet/tunnel/tun"
 	"net"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/xtls/xray-core/transport/internet/tunnel/tun"
 
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
@@ -24,6 +25,8 @@ type Handler interface {
 	HandleStream(net.Conn) error
 	HandlePacket(PacketConn, *net.UDPAddr) error
 }
+
+const NICID = tcpip.NICID(1)
 
 type Stack struct {
 	stack   *stack.Stack
@@ -72,8 +75,6 @@ func New(device tun.Device, handler Handler, opts ...option) (s *Stack, err erro
 			return nil, err
 		}
 	}
-
-	const NICID = tcpip.NICID(1)
 
 	mustSubnet := func(s string) tcpip.Subnet {
 		_, ipNet, err := net.ParseCIDR(s)

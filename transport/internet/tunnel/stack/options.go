@@ -21,7 +21,7 @@ func SetDefaultTTL(ttl int) option {
 
 func SetForwarding() option {
 	return func(stack *Stack) error {
-		if err := stack.stack.SetForwarding(ipv4.ProtocolNumber, true); err != nil {
+		if err := stack.stack.SetForwardingDefaultAndAllNICs(ipv4.ProtocolNumber, true); err != nil {
 			return newError("failed to set ipv4 forwarding: " + err.String())
 		}
 		return nil

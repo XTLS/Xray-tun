@@ -22,11 +22,12 @@ require (
 	golang.org/x/net v0.0.0-20210410081132-afb366fc7cd1
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57
+	golang.org/x/text v0.3.7-0.20210524175448-3115f89c4b99 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.zx2c4.com/wireguard v0.0.0-20210427022245-097af6e1351b
 	golang.zx2c4.com/wireguard/windows v0.3.11
-	google.golang.org/grpc v1.36.1
+	google.golang.org/grpc v1.39.0-dev.0.20210518002758-2713b77e8526
 	google.golang.org/protobuf v1.26.0
-	gvisor.dev/gvisor v0.0.0-20210501194209-c8eee758e7e9
+	gvisor.dev/gvisor v0.0.0-20210630043639-5cbcccf1faa9
 	h12.io/socks v1.0.2
 )
